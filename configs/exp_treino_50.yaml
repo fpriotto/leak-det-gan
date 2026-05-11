@@ -1,0 +1,59 @@
+# Arquivo: configs/exp_treino_50.yaml
+# Descrição: Parâmetros específicos para o experimento com 50% dos dados.
+
+data:
+  raw_vazamento_dir: "data/raw/Vazamento_5_bar/data_pkl"
+  raw_normalidade_dir: "data/raw/Normalidade/data_pkl"
+  treino_dir: "data/processed/treino_50"
+  teste_dir: "data/processed/teste_50"
+  split_ratio: 0.50
+  seed: 42
+
+gan:
+  type: "wgan"
+  z_dim: 100
+  seq_len: 2500
+  cond_dim: 1
+  lambda_gp: 15
+  batch_size: 64
+  epochs: 2
+  lr: 0.0001
+  n_critic: 5 # Quantas vezes treinar o crítico antes do gerador
+  use_spectral_critic: False
+
+filters:
+  orig_fs: 1000000
+  target_fs: 250000
+  butter_cutoff: 125000
+  butter_order: 6
+  cheby_lowcut: 25000
+  cheby_highcut: 80000
+  cheby_order: 5
+  cheby_ripple: 3
+  chunk_size: 2500
+
+spectro:
+  fs: 250000
+  nperseg: 256
+  noverlap: 128
+  f_min: 25000
+  f_max: 80000
+  img_size: [128, 128]
+  n_gen_per_class: 1000  # Quantas imagens falsas a GAN vai gerar por posição
+  n_norm_samples: 1000   # Quantas imagens de normalidade reais vamos salvar
+
+eval_model:
+  type: "vit" # Mude para "vit" ou "cnn" para alternar os testes
+  img_size: 64 # basta mudar aqui pra treinar com 32x32 ou 128x128 pixels
+  batch_size: 128
+  epochs: 2
+  lr_bin: 0.003
+  lr_reg: 0.003
+  
+  # Parâmetros ativados apenas se type == "vit"
+  vit_params:
+    patch_size: 8
+    emb_dim: 128
+    n_heads: 4
+    n_layers_bin: 4
+    n_layers_reg: 8
