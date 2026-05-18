@@ -1,7 +1,5 @@
 # Leak Detection with WGAN-GP and ViT
 
-Source code for the dissertation *"Generative Models Applied to Acoustic Emission for Leak Detection and Localization in Pipelines"*.
-
 A WGAN-GP dual-critic model generates synthetic acoustic emission signals. The signals (real and synthetic) are converted to log-spectrograms and evaluated under AWGN noise at multiple SNRs using a cascade ViT classifier and CNN baselines.
 
 ## Pipeline
