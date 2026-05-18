@@ -1,53 +1,37 @@
-"""
-Script: scripts/01_prepare_data.py
-Descrição: Pipeline de ETL inicial. Lê os dados brutos (.pkl), extrai os sinais, fatia em janelas de 10ms, aplica os filtros em cada janela, divide em treino/teste e salva na pasta processed/.
-Uso: python scripts/01_prepare_data.py --config configs/exp_treino_50.yaml
-"""
-
 import sys
 from pathlib import Path
 
-# Garante que o python ache a pasta 'src'
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 from src.core.config_parser import load_config
-from src.data_prep.splitter import carregar_pasta_pkl, extrair_canal_2, split_e_salvar
+from src.data_prep.splitter import load_pkl_folder, extract_channel_2, split_and_save
 from src.data_prep.signal_filters import process_sensor_dict
 
 
 def main():
-    config_path = "configs/exp_treino_50.yaml"
-    cfg = load_config(config_path)
+    cfg = load_config("configs/exp_treino_50.yaml")
     data_cfg = cfg["data"]
     filter_cfg = cfg["filters"]
 
-    print("Iniciando preparação de dados...")
+    print("Loading raw .pkl files...")
+    leak_data = load_pkl_folder(data_cfg["raw_leak_dir"])
+    normal_data = load_pkl_folder(data_cfg["raw_normal_dir"])
 
-    # 1. Carrega dados brutos convertidos
-    print("Carregando arquivos .pkl originais...")
-    dict_vaz = carregar_pasta_pkl(data_cfg["raw_vazamento_dir"])
-    dict_norm = carregar_pasta_pkl(data_cfg["raw_normalidade_dir"])
+    print("Extracting channel 2...")
+    sensor_data = extract_channel_2(leak_data=leak_data, normal_data=normal_data)
 
-    # 2. Extrai as features de interesse (Canal 2)
-    print("Extraindo Canal 2 dos sensores...")
-    sensor_data = extrair_canal_2(dict_vazamento=dict_vaz, dict_normalidade=dict_norm)
+    print("Windowing and filtering (this may take a moment)...")
+    filtered = process_sensor_dict(sensor_data, filter_cfg)
 
-    # 3. Fatiamento e Filtros (Nova Ordem da Dissertação!)
-    print(
-        "Fatiando os sinais em janelas de 10ms e aplicando filtros Butterworth e Chebyshev (isso pode demorar uns segundos)..."
-    )
-    sensor_data_filtrado = process_sensor_dict(sensor_data, filter_cfg)
-
-    # 4. Divide e salva
-    print("Dividindo as fatias e salvando em treino/teste...")
-    split_e_salvar(
-        sensor_data=sensor_data_filtrado,
-        pasta_treino=data_cfg["treino_dir"],
-        pasta_teste=data_cfg["teste_dir"],
+    print("Splitting and saving...")
+    split_and_save(
+        sensor_data=filtered,
+        train_dir=data_cfg["train_dir"],
+        test_dir=data_cfg["test_dir"],
         split_ratio=data_cfg["split_ratio"],
         seed=data_cfg["seed"],
     )
-    print("Pipeline de preparação finalizado!")
+    print("Done.")
 
 
 if __name__ == "__main__":

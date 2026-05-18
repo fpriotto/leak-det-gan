@@ -1,8 +1,3 @@
-"""
-Arquivo: src/data_loaders/vit_dataset.py
-Descrição: Classes de Dataset para imagens 2D (SpectroDataset) e pipeline de Data Augmentation (SpecMask, transforms).
-"""
-
 import random
 import torch
 from PIL import Image
@@ -12,10 +7,11 @@ from torchvision import transforms
 
 class SpecMask:
     def __init__(self, img_size=64):
-        self.freq, self.time = img_size // 8, img_size // 8
+        self.freq = img_size // 8
+        self.time = img_size // 8
 
     def __call__(self, img):
-        c, h, w = img.shape
+        _, h, w = img.shape
         f = random.randint(0, self.freq)
         f0 = random.randint(0, h - f)
         img[:, f0 : f0 + f, :] = 0
@@ -33,9 +29,7 @@ def get_transforms(img_size=64):
         [
             basic,
             SpecMask(img_size),
-            transforms.RandomApply(
-                [transforms.RandomErasing(p=1.0, scale=(0.02, 0.2))], p=0.5
-            ),
+            transforms.RandomApply([transforms.RandomErasing(p=1.0, scale=(0.02, 0.2))], p=0.5),
             transforms.Normalize([0.5], [0.5]),
         ]
     )
@@ -53,6 +47,4 @@ class SpectroDataset(Dataset):
 
     def __getitem__(self, idx):
         path, lab = self.samples[idx]
-        return self.transform(Image.open(path).convert("L")), torch.tensor(
-            lab, dtype=torch.float32
-        )
+        return self.transform(Image.open(path).convert("L")), torch.tensor(lab, dtype=torch.long)

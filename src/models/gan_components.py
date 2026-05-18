@@ -1,14 +1,9 @@
-"""
-Arquivo: src/models/gan_components.py
-Descrição: Arquitetura das redes neurais da WGAN (Gen1D, Critic1D e CriticSpec).
-"""
-
 import torch
 import torch.nn as nn
 
 
 class Gen1D(nn.Module):
-    """Gerador Condicional 1D para sinais temporais."""
+    """Conditional 1-D generator for time-series signals."""
 
     def __init__(self, z_dim=100, cond_dim=1, seq_len=2500):
         super().__init__()
@@ -24,14 +19,12 @@ class Gen1D(nn.Module):
         )
 
     def forward(self, z, c):
-        x = torch.cat([z, c], dim=1)
-        x = self.fc(x).view(-1, 256, 20)
-        x = self.up(x)
-        return self.conv(x)
+        x = self.fc(torch.cat([z, c], dim=1)).view(-1, 256, 20)
+        return self.conv(self.up(x))
 
 
 class Critic1D(nn.Module):
-    """Crítico Condicional para avaliar a fidelidade do sinal no Domínio do Tempo."""
+    """Conditional critic operating in the time domain."""
 
     def __init__(self, cond_dim=1):
         super().__init__()
@@ -47,15 +40,12 @@ class Critic1D(nn.Module):
         self.fc = nn.Linear(256, 1)
 
     def forward(self, x, c):
-        # Expande a condição (distância) para o tamanho do sinal
         c_feat = c.unsqueeze(-1).repeat(1, 1, x.size(-1))
-        x_in = torch.cat([x, c_feat], dim=1)
-        h = self.net(x_in).squeeze(-1)
-        return self.fc(h)
+        return self.fc(self.net(torch.cat([x, c_feat], dim=1)).squeeze(-1))
 
 
 class CriticSpec(nn.Module):
-    """Crítico para avaliar a fidelidade no Domínio da Frequência (Espectrograma)."""
+    """Unconditional critic operating on spectrograms."""
 
     def __init__(self, input_shape=(129, 20)):
         super().__init__()
@@ -69,5 +59,4 @@ class CriticSpec(nn.Module):
         )
 
     def forward(self, spec):
-        flat = spec.flatten(start_dim=1)
-        return self.model(flat)
+        return self.model(spec.flatten(start_dim=1))

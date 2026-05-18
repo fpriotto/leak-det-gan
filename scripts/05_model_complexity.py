@@ -6,61 +6,41 @@ from thop import profile, clever_format
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 from src.core.config_parser import load_config
-from src.models.cascade_vit import BinaryViT, LeakRegressorViT
-from src.models.cnn_baselines import ResNetBaseline
+from src.models.cascade_vit import BinaryViT, LeakPosViT
+from src.models.cnn_baselines import SimpleCNN, ResNetBaseline
 
 
-def calcular_complexidade(modelo, nome_modelo, img_size):
-    device = torch.device("cpu")
-    modelo = modelo.to(device)
-
-    # Cria uma imagem falsa com 1 canal (escala de cinza)
-    entrada_falsa = torch.randn(1, 1, img_size, img_size).to(device)
-
-    # Calcula os MACs e Parâmetros usando a biblioteca thop
-    macs, params = profile(modelo, inputs=(entrada_falsa,), verbose=False)
-
+def report(model, name: str, img_size: int):
+    model = model.cpu()
+    dummy = torch.randn(1, 1, img_size, img_size)
+    macs, params = profile(model, inputs=(dummy,), verbose=False)
     macs_fmt, params_fmt = clever_format([macs, params], "%.3f")
-    flops = (macs * 2) / 1e9  # 1 MAC ~= 2 FLOPs
-
-    print(f"\n=== Complexidade: {nome_modelo} (Input: {img_size}x{img_size}) ===")
-    print(f"Parâmetros: {params_fmt} ({int(params):,} parâmetros)")
-    print(f"MACs:       {macs_fmt}")
-    print(f"FLOPs:      {flops:.4f} GFLOPs")
-    print("=" * 60)
+    print(f"\n{name}  ({img_size}×{img_size})")
+    print(f"  Params : {params_fmt}  ({int(params):,})")
+    print(f"  MACs   : {macs_fmt}")
+    print(f"  FLOPs  : {(macs * 2) / 1e9:.4f} G")
 
 
 def main():
     cfg = load_config("configs/exp_treino_50.yaml")
-    eval_cfg = cfg["eval_model"]
-    img_size = eval_cfg["img_size"]
-    vp = eval_cfg["vit_params"]
+    vp = cfg["eval_model"]["vit_params"]
+    img_size = cfg["eval_model"]["img_size"]
+    n_pos = 6
 
-    print("Calculando complexidade dos modelos para a dissertação...\n")
-
-    # 1. Avalia ViT Binário
-    vit_bin = BinaryViT(
-        img_size=img_size,
-        patch_size=vp["patch_size"],
-        emb_dim=vp["emb_dim"],
-        n_layers=vp["n_layers_bin"],
-        n_heads=vp["n_heads"],
+    report(
+        BinaryViT(img_size, vp["patch_size"], vp["emb_dim"], vp["n_layers_bin"], vp["n_heads"]),
+        "ViT Binary",
+        img_size,
     )
-    calcular_complexidade(vit_bin, "Vision Transformer (Binário)", img_size)
-
-    # 2. Avalia ViT Regressão
-    vit_reg = LeakRegressorViT(
-        img_size=img_size,
-        patch_size=vp["patch_size"],
-        emb_dim=vp["emb_dim"],
-        n_layers=vp["n_layers_reg"],
-        n_heads=vp["n_heads"],
+    report(
+        LeakPosViT(img_size, vp["patch_size"], vp["emb_dim"], vp["n_layers_bin"], vp["n_heads"], n_pos),
+        "ViT Position",
+        img_size,
     )
-    calcular_complexidade(vit_reg, "Vision Transformer (Regressão)", img_size)
-
-    # 3. Avalia ResNet-18 (Benchmark)
-    resnet = ResNetBaseline(is_classifier=True)
-    calcular_complexidade(resnet, "ResNet-18 (Classificador)", img_size)
+    report(SimpleCNN(n_classes=2), "SimpleCNN Binary", img_size)
+    report(SimpleCNN(n_classes=n_pos), "SimpleCNN Position", img_size)
+    report(ResNetBaseline(n_classes=2), "ResNet-18 Binary", img_size)
+    report(ResNetBaseline(n_classes=n_pos), "ResNet-18 Position", img_size)
 
 
 if __name__ == "__main__":

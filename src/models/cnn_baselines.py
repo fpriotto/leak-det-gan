@@ -4,51 +4,38 @@ import torchvision.models as models
 
 
 class SimpleCNN(nn.Module):
-    """CNN básica para benchmark de classificação e regressão."""
+    """Lightweight CNN. n_classes=1 → regressor (Sigmoid), n_classes≥2 → classifier."""
 
-    def __init__(self, num_outputs=1, is_classifier=False):
+    def __init__(self, n_classes=2):
         super().__init__()
-        self.is_classifier = is_classifier
+        self.n_classes = n_classes
         self.conv_stack = nn.Sequential(
-            nn.Conv2d(1, 32, 3, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(2),
-            nn.Conv2d(32, 64, 3, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(2),
-            nn.Conv2d(64, 128, 3, padding=1),
-            nn.ReLU(),
-            nn.AdaptiveAvgPool2d((1, 1)),
+            nn.Conv2d(1, 32, 3, padding=1), nn.ReLU(), nn.MaxPool2d(2),
+            nn.Conv2d(32, 64, 3, padding=1), nn.ReLU(), nn.MaxPool2d(2),
+            nn.Conv2d(64, 128, 3, padding=1), nn.ReLU(), nn.AdaptiveAvgPool2d((1, 1)),
         )
-        self.fc = nn.Linear(128, 2 if is_classifier else 1)
-        self.sigmoid = nn.Sigmoid()
+        self.fc = nn.Linear(128, n_classes)
 
     def forward(self, x):
-        x = self.conv_stack(x).flatten(1)
-        x = self.fc(x)
-        return x if self.is_classifier else self.sigmoid(x).squeeze(1)
+        feat = self.conv_stack(x).flatten(1)
+        out = self.fc(feat)
+        if self.n_classes == 1:
+            return torch.sigmoid(out).squeeze(1)
+        return out
 
 
 class ResNetBaseline(nn.Module):
-    """ResNet-18 para benchmark acadêmico (Ablation Study)."""
+    """ResNet-18 from scratch on single-channel spectrograms. n_classes=1 → regressor."""
 
-    def __init__(self, is_classifier=False):
+    def __init__(self, n_classes=2):
         super().__init__()
-        self.is_classifier = is_classifier
-
-        # Carrega a arquitetura ResNet-18 sem pesos pré-treinados
+        self.n_classes = n_classes
         self.resnet = models.resnet18(weights=None)
-
-        # Modifica a primeira camada para aceitar 1 canal (Grayscale) em vez de 3 (RGB)
-        self.resnet.conv1 = nn.Conv2d(
-            1, 64, kernel_size=7, stride=2, padding=3, bias=False
-        )
-
-        # Modifica a última camada (Fully Connected) para 2 classes (Binário) ou 1 (Regressão)
-        num_ftrs = self.resnet.fc.in_features
-        self.resnet.fc = nn.Linear(num_ftrs, 2 if is_classifier else 1)
-        self.sigmoid = nn.Sigmoid()
+        self.resnet.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)
+        self.resnet.fc = nn.Linear(self.resnet.fc.in_features, n_classes)
 
     def forward(self, x):
-        x = self.resnet(x)
-        return x if self.is_classifier else self.sigmoid(x).squeeze(1)
+        out = self.resnet(x)
+        if self.n_classes == 1:
+            return torch.sigmoid(out).squeeze(1)
+        return out

@@ -1,15 +1,11 @@
-# Arquivo: configs/exp_treino_80.yaml
-# Descrição: Parâmetros específicos para o experimento com 80% dos dados (tamanho de batch, épocas, learning rate).
-
 data:
-  raw_vazamento_dir: "data/raw/Vazamento_5_bar/data_pkl"
-  raw_normalidade_dir: "data/raw/Normalidade/data_pkl"
-  treino_dir: "data/processed/treino_80"
-  teste_dir: "data/processed/teste_20"
+  raw_leak_dir: "data/raw/Vazamento_5_bar/data_pkl"
+  raw_normal_dir: "data/raw/Normalidade/data_pkl"
+  train_dir: "data/processed/treino_80"
+  test_dir: "data/processed/teste_20"
   split_ratio: 0.80
   seed: 42
 
-# --- ADICIONE DAQUI PRA BAIXO ---
 gan:
   type: "cgan"
   z_dim: 100
@@ -19,8 +15,8 @@ gan:
   batch_size: 64
   epochs: 2
   lr: 0.0001
-  n_critic: 5 # Quantas vezes treinar o crítico antes do gerador
-  use_spectral_critic: False
+  n_critic: 5
+  use_spectral_critic: false
 
 filters:
   orig_fs: 1000000
@@ -35,23 +31,21 @@ filters:
 
 spectro:
   fs: 250000
-  nperseg: 256
-  noverlap: 128
+  nperseg: 512
+  noverlap: 504
   f_min: 25000
   f_max: 80000
   img_size: [128, 128]
-  n_gen_per_class: 1000  # Quantas imagens falsas a GAN vai gerar por posição
-  n_norm_samples: 1000   # Quantas imagens de normalidade reais vamos salvar
+  n_gen_per_class: 1000
+  n_norm_samples: 1000
 
 eval_model:
-  type: "cnn" # Mude para "vit" ou "cnn" para alternar os testes
-  img_size: 64 # basta mudar aqui pra treinar com 32x32 ou 128x128 pixels
+  type: "cnn"
+  img_size: 64
   batch_size: 128
   epochs: 2
   lr_bin: 0.003
   lr_reg: 0.003
-  
-  # Parâmetros ativados apenas se type == "vit"
   vit_params:
     patch_size: 8
     emb_dim: 128
