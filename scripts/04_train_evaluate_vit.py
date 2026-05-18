@@ -201,6 +201,13 @@ def evaluate_generated(samples, label_names):
 
 # ── Evaluation on real test data ──────────────────────────────────────────────
 def evaluate_real(base_path, label_names):
+    """Evaluate cascade on real recordings.
+
+    Folders that match a trained class (e.g. pos_10m, pos_60m) are mapped to
+    the correct model index via wanted2new. Folders for untrained positions
+    (e.g. pos_25m) are still run through the model but their predictions are
+    shown as a raw distribution rather than scored as right/wrong.
+    """
     from sklearn.metrics import classification_report, confusion_matrix
     import matplotlib
     matplotlib.use("Agg")
@@ -211,13 +218,27 @@ def evaluate_real(base_path, label_names):
     pos_model.eval()
 
     pos_dirs = sorted(p for p in Path(base_path).iterdir() if p.is_dir())
-    real_samples, real_label_names = [], []
-    for i, pos_dir in enumerate(pos_dirs):
-        real_samples.extend([(str(p), i) for p in sorted(pos_dir.glob("*.png"))])
-        real_label_names.append(pos_dir.name)
 
-    loader = DataLoader(SpectroDataset(real_samples, val_tf), BATCH, shuffle=False, num_workers=4)
+    # Separate trained and untrained positions.
+    trained_samples, trained_folder_names = [], []
+    untrained_preds_by_folder: dict = {}
 
+    all_samples, all_true_labels, folder_per_sample = [], [], []
+    for pos_dir in pos_dirs:
+        imgs = sorted(pos_dir.glob("*.png"))
+        if pos_dir.name in wanted2new:
+            lbl = wanted2new[pos_dir.name]
+            trained_samples.extend([(str(p), lbl) for p in imgs])
+            trained_folder_names.append(pos_dir.name)
+        else:
+            # Untrained position: true label = sentinel N_POS+1
+            all_samples.extend([(str(p), N_POS + 1) for p in imgs])
+            untrained_preds_by_folder[pos_dir.name] = []
+        all_samples.extend([(str(p), wanted2new.get(pos_dir.name, N_POS + 1)) for p in imgs])
+        folder_per_sample.extend([pos_dir.name] * len(imgs))
+
+    # Run inference on ALL folders (trained + untrained).
+    loader = DataLoader(SpectroDataset(trained_samples, val_tf), BATCH, shuffle=False, num_workers=4)
     y_true, y_pred = [], []
     with torch.no_grad():
         for X, y in loader:
@@ -225,19 +246,39 @@ def evaluate_real(base_path, label_names):
             y_true.extend(y.tolist())
             y_pred.extend(pred.cpu().tolist())
 
-    print("\n=== Cascade evaluation — real test data ===")
+    print("\n=== Cascade evaluation — real test data (trained positions) ===")
+    trained_labels = sorted(set(y_true))
+    trained_names = [label_names[lbl] for lbl in trained_labels]
     print(classification_report(
         y_true, y_pred,
-        labels=range(len(label_names)),
-        target_names=label_names,
+        labels=trained_labels,
+        target_names=trained_names,
         digits=3,
+        zero_division=0,
     ))
 
-    cm = confusion_matrix(y_true, y_pred, labels=range(len(label_names)))
-    cm = cm[: len(real_label_names), :]  # only rows that have real data
-    plt.figure(figsize=(12, 5))
-    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues",
-                xticklabels=label_names, yticklabels=real_label_names)
+    # Also run untrained folders and show prediction distribution.
+    for pos_dir in pos_dirs:
+        if pos_dir.name in wanted2new:
+            continue
+        imgs = sorted(pos_dir.glob("*.png"))
+        samples = [(str(p), 0) for p in imgs]  # label irrelevant
+        loader_u = DataLoader(SpectroDataset(samples, val_tf), BATCH, shuffle=False, num_workers=4)
+        preds_u = []
+        with torch.no_grad():
+            for X, _ in loader_u:
+                preds_u.extend(predict_cascade(X.to(DEVICE), bin_model, pos_model).cpu().tolist())
+        from collections import Counter
+        dist = {label_names[k]: v for k, v in sorted(Counter(preds_u).items())}
+        print(f"\n{pos_dir.name} (untrained — prediction distribution): {dist}")
+
+    # Confusion matrix for trained folders only.
+    cm = confusion_matrix(y_true, y_pred, labels=list(range(len(label_names))))
+    rows = [i for i, name in enumerate(label_names) if name in trained_folder_names]
+    cm_rows = cm[rows, :]
+    plt.figure(figsize=(12, max(3, len(rows) * 1.5)))
+    sns.heatmap(cm_rows, annot=True, fmt="d", cmap="Blues",
+                xticklabels=label_names, yticklabels=trained_folder_names)
     plt.title("Confusion Matrix — real test data")
     plt.xlabel("Predicted")
     plt.ylabel("True")

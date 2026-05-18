@@ -35,12 +35,18 @@ def add_awgn(signal, snr_db):
 def save_spectrograms_as_png(
     series_list, out_folder, vmin, vmax, fs, nperseg, noverlap, mask, img_size, snr_db=None
 ):
+    """Save spectrograms as PNG images.
+
+    Args:
+        mask: Frequency boolean mask to crop the spectrogram. Pass None to use
+            the full spectrum (used for the normal/no-leak class).
+    """
     Path(out_folder).mkdir(parents=True, exist_ok=True)
     for idx, serie in enumerate(tqdm(series_list, desc=str(Path(out_folder).name))):
         sig = serie.values if hasattr(serie, "values") else np.asarray(serie)
         sig = add_awgn(sig, snr_db)
         _, _, Sxx = spectrogram(sig, fs=fs, nperseg=nperseg, noverlap=noverlap)
-        S_crop = Sxx[mask, :]
+        S_crop = Sxx[mask, :] if mask is not None else Sxx
         if np.isnan(S_crop).any():
             continue
         S_log = np.flipud(10 * np.log10(S_crop + 1e-12))

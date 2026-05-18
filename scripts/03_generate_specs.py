@@ -74,7 +74,8 @@ def main():
             out_dir_real / "normalidade",
             vmin, vmax,
             spc_cfg["fs"], spc_cfg["nperseg"], spc_cfg["noverlap"],
-            mask, spc_cfg["img_size"],
+            None,  # full spectrum for normal class — preserves low-freq signature
+            spc_cfg["img_size"],
             snr_db=snr,
         )
 
