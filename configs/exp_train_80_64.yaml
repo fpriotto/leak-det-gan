@@ -1,0 +1,61 @@
+data:
+  raw_leak_dir: "data/raw/leak_5bar/data_pkl"
+  raw_normal_dir: "data/raw/normal/data_pkl"
+  train_dir: "data/processed/train_80"
+  test_dir: "data/processed/test_20"
+  split_ratio: 0.80
+  seed: 42
+  gan_model_dir: "data/gan_model"
+  pos_map: {1: 10, 2: 25, 3: 60}
+
+gan:
+  type: "wgan"
+  z_dim: 100
+  seq_len: 2500
+  cond_dim: 1
+  lambda_gp: 15
+  batch_size: 64
+  epochs: 3000
+  lr: 0.0001
+  n_critic: 5
+  use_spectral_critic: true
+
+filters:
+  orig_fs: 1000000
+  target_fs: 250000
+  butter_cutoff: 125000
+  butter_order: 6
+  cheby_lowcut: 25000
+  cheby_highcut: 80000
+  cheby_order: 5
+  cheby_ripple: 10
+  chunk_size: 2500
+
+spectro:
+  fs: 250000
+  nperseg: 128
+  noverlap: 96
+  f_min: 25000
+  f_max: 80000
+  img_size: [128, 128]
+  n_gen_per_class: 1000
+  n_norm_samples: 1000
+
+eval_model:
+  type: "vit"
+  img_size: 64
+  batch_size: 128
+  epochs: 30
+  lr_bin: 0.001
+  lr_reg: 0.003
+  focal_gamma: 2.0
+  bin_threshold: 0.05
+  num_workers: 4
+  n_test_norm: 150
+  eval_out_dir: "outputs/evaluation/80pct_64"
+  vit_params:
+    patch_size: 8
+    emb_dim: 128
+    n_heads: 4
+    n_layers_bin: 4
+    n_layers_reg: 8

@@ -1,15 +1,28 @@
+"""Filter and split raw sensor signals into train/test pickle files.
+
+Usage:
+    python scripts/01_prepare_data.py --config configs/exp_train_50.yaml
+"""
+
+from __future__ import annotations
+
+import argparse
 import sys
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 from src.core.config_parser import load_config
-from src.data_prep.splitter import load_pkl_folder, extract_channel_2, split_and_save
 from src.data_prep.signal_filters import process_sensor_dict
+from src.data_prep.splitter import extract_channel_2, load_pkl_folder, split_and_save
 
 
-def main():
-    cfg = load_config("configs/exp_treino_50.yaml")
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", default="configs/exp_train_50.yaml")
+    args = parser.parse_args()
+
+    cfg = load_config(args.config)
     data_cfg = cfg["data"]
     filter_cfg = cfg["filters"]
 
@@ -20,7 +33,7 @@ def main():
     print("Extracting channel 2...")
     sensor_data = extract_channel_2(leak_data=leak_data, normal_data=normal_data)
 
-    print("Windowing and filtering (this may take a moment)...")
+    print("Windowing and filtering...")
     filtered = process_sensor_dict(sensor_data, filter_cfg)
 
     print("Splitting and saving...")

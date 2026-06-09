@@ -1,3 +1,9 @@
+"""Report FLOPs and parameter counts for ViT and CNN baseline models.
+
+Usage:
+    python scripts/05_model_complexity.py
+"""
+
 import sys
 import torch
 from pathlib import Path
@@ -22,18 +28,27 @@ def report(model, name: str, img_size: int):
 
 
 def main():
-    cfg = load_config("configs/exp_treino_50.yaml")
+    cfg = load_config("configs/exp_train_50.yaml")
     vp = cfg["eval_model"]["vit_params"]
     img_size = cfg["eval_model"]["img_size"]
     n_pos = 6
 
     report(
-        BinaryViT(img_size, vp["patch_size"], vp["emb_dim"], vp["n_layers_bin"], vp["n_heads"]),
+        BinaryViT(
+            img_size, vp["patch_size"], vp["emb_dim"], vp["n_layers_bin"], vp["n_heads"]
+        ),
         "ViT Binary",
         img_size,
     )
     report(
-        LeakPosViT(img_size, vp["patch_size"], vp["emb_dim"], vp["n_layers_bin"], vp["n_heads"], n_pos),
+        LeakPosViT(
+            img_size,
+            vp["patch_size"],
+            vp["emb_dim"],
+            vp["n_layers_bin"],
+            vp["n_heads"],
+            n_pos,
+        ),
         "ViT Position",
         img_size,
     )

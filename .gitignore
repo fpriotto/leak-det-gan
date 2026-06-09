@@ -1,7 +1,13 @@
 data/
+outputs/
 *.pth
 *.save
+*.bak
 __pycache__/
 *.ipynb_checkpoints/
+.venv/
+venv/
+Screenshot*
+filtro.png
 
 other_repo/

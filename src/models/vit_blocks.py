@@ -1,16 +1,31 @@
+"""Low-level Vision Transformer building blocks: patch embedding and encoder."""
+from __future__ import annotations
+
 import torch
 import torch.nn as nn
 
 
 class PatchEmbedding(nn.Module):
-    def __init__(self, in_channels=1, patch_size=8, emb_dim=128, img_size=64):
+    """Project image patches to token embeddings and prepend a [CLS] token.
+
+    Uses a strided convolution to extract non-overlapping patches, then
+    concatenates a learnable [CLS] token and adds learnable positional embeddings.
+    """
+
+    def __init__(
+        self,
+        in_channels: int = 1,
+        patch_size: int = 8,
+        emb_dim: int = 128,
+        img_size: int = 64,
+    ) -> None:
         super().__init__()
         n_patches = (img_size // patch_size) ** 2
         self.proj = nn.Conv2d(in_channels, emb_dim, kernel_size=patch_size, stride=patch_size)
         self.cls_token = nn.Parameter(torch.randn(1, 1, emb_dim))
         self.pos_emb = nn.Parameter(torch.randn(1, n_patches + 1, emb_dim))
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         B = x.shape[0]
         x = self.proj(x).flatten(2).transpose(1, 2)
         cls = self.cls_token.expand(B, -1, -1)
@@ -18,12 +33,24 @@ class PatchEmbedding(nn.Module):
 
 
 class TransformerEncoder(nn.Module):
-    def __init__(self, emb_dim=128, n_heads=4, mlp_dim=256, dropout=0.1):
+    """Single Transformer encoder block with pre-norm, MHSA, and MLP.
+
+    Implements the standard ViT encoder: LayerNorm → MHSA → residual,
+    then LayerNorm → MLP → residual.
+    """
+
+    def __init__(
+        self,
+        emb_dim: int = 128,
+        n_heads: int = 4,
+        mlp_dim: int = 256,
+        dropout: float = 0.1,
+    ) -> None:
         super().__init__()
         self.norm1 = nn.LayerNorm(emb_dim)
-        self.attn = nn.MultiheadAttention(emb_dim, n_heads, dropout=dropout, batch_first=True)
+        self.attn  = nn.MultiheadAttention(emb_dim, n_heads, dropout=dropout, batch_first=True)
         self.norm2 = nn.LayerNorm(emb_dim)
-        self.mlp = nn.Sequential(
+        self.mlp   = nn.Sequential(
             nn.Linear(emb_dim, mlp_dim),
             nn.GELU(),
             nn.Dropout(dropout),
@@ -31,6 +58,6 @@ class TransformerEncoder(nn.Module):
             nn.Dropout(dropout),
         )
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = x + self.attn(self.norm1(x), self.norm1(x), self.norm1(x))[0]
         return x + self.mlp(self.norm2(x))

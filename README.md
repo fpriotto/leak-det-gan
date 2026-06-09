@@ -14,12 +14,14 @@ All scripts must be run from the repository root.
 | `scripts/03_generate_specs.py` | Render log-spectrograms (real + synthetic) at SNR 10–50 dB |
 | `scripts/04_train_evaluate_vit.py` | Train and evaluate the cascade ViT (BinaryViT → LeakPosViT) |
 | `scripts/05_model_complexity.py` | Report FLOPs and parameter counts for all models |
+| `scripts/06_threshold_sweep.py` | Sweep binary threshold on held-out test pkl; find optimal operating point |
+| `scripts/07_train_regression.py` | Train and evaluate the cascade ViT regressor (BinaryViT → LeakRegressorViT) |
+| `scripts/08_run_ablation.py` | Run leave-one-sensor-out ablations (no_10m / no_25m / no_60m) |
 
 ## Setup
 
 ```bash
 pip install -r requirements.txt
-pip install thop
 ```
 
 ## Data layout
@@ -27,19 +29,45 @@ pip install thop
 ```
 data/
   raw/
-    Vazamento_5_bar/      # raw leak recordings (1 MHz, zlib)
-    Normalidade/          # raw normal recordings
+    leak_5bar/        # raw leak recordings (1 MHz, zlib)
+    normal/           # raw normal recordings
   processed/
-    treino_50/            # 50% split used for GAN training
-    teste_50/             # held-out 50% — never seen by GAN
-  modelo_gan/             # saved generator weights and normalization metadata
+    train_50/         # 50% split used for GAN training
+    test_50/          # held-out 50% — never seen by GAN
+  gan_model/          # saved generator weights and normalization metadata
   spectrograms/
     snr_50/
-      reais/              # real spectrograms at 50 dB SNR
-      reais_teste/        # test-set-only real spectrograms (pos_10m, pos_25m, pos_60m)
-      gerados/            # GAN-generated spectrograms (6 positions × 1000 samples)
+      real/           # real spectrograms at 50 dB SNR
+      real_test/      # test-set-only real spectrograms (pos_10m, pos_25m, pos_60m)
+      generated_50pct/  # GAN-generated spectrograms (6 positions × 1000 samples)
 ```
 
 ## Configuration
 
-Active experiment: `configs/exp_treino_50.yaml` (50% data split, WGAN-GP).
+Active experiment: `configs/exp_train_50.yaml` (50% data split, WGAN-GP).
+
+Key parameters:
+- `spectro.nperseg: 128` / `noverlap: 96` — 75% overlap STFT; 76 temporal frames per window
+- `eval_model.bin_threshold: 0.05` — operating threshold for binary stage (safety-driven: false alarms preferred over missed leaks)
+- `eval_model.epochs: 30` — ViT trained with CosineAnnealingLR
+
+## Running
+
+Run the full pipeline for a single split (e.g. 50%) from the repository root:
+
+```bash
+python scripts/01_prepare_data.py       --config configs/exp_train_50.yaml
+python scripts/02_train_wgan.py         --config configs/exp_train_50.yaml
+python scripts/03_generate_specs.py     --config configs/exp_train_50.yaml
+python scripts/04_train_evaluate_vit.py --config configs/exp_train_50.yaml
+python scripts/07_train_regression.py   --config configs/exp_train_50.yaml --splits 50
+```
+
+Other splits use the matching config (`configs/exp_train_{20,35,50,65,80}.yaml`).
+
+Threshold sweep (after ViT training) and leave-one-sensor-out ablations:
+
+```bash
+python scripts/06_threshold_sweep.py
+python scripts/08_run_ablation.py
+```
